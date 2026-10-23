@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OnAir SDR Master Control | Tactical Electronic Intelligence Suite</title>
+  <meta name="description" content="Autonomous Web Command Center & Electronic Intelligence Suite for OnAir SDR + ADALM-Pluto. Full control, learned memory, spectrum sweeping & protocol decoders.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Top Navigation Header -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="brand-logo">
+        <div class="radar-pulse"></div>
+        <span class="brand-title">ONAIR <span class="brand-accent">SDR MASTER</span></span>
+        <span class="badge badge-version">v2.5.0 ELINT</span>
+      </div>
+      <div class="system-status-pills">
+        <div id="status-pluto" class="status-pill status-offline">
+          <span class="pill-dot"></span>
+          <span class="pill-label">PlutoSDR: فحص...</span>
+        </div>
+        <div id="status-gpu" class="status-pill status-gpu">
+          <span class="pill-dot"></span>
+          <span class="pill-label">RTX 5060 Ti LDPC</span>
+        </div>
+        <div id="status-bridge" class="status-pill status-offline">
+          <span class="pill-dot"></span>
+          <span class="pill-label">API Bridge: 8765</span>
+        </div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="api-endpoint-box">
+        <label for="bridge-url-input">رابط الجسر المحلي:</label>
+        <input type="text" id="bridge-url-input" value="http://127.0.0.1:8765" spellcheck="false">
+        <button id="btn-reconnect" class="btn btn-outline-sm" title="إعادة الاتصال بالجسر">تحديث</button>
+      </div>
+      <button id="btn-toggle-gui" class="btn btn-warning-sm" title="إدارة عملية واجهة OnAir.exe لتفادي حظر الـ USB">
+        ⚡ تحرير الـ USB
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace Layout -->
+  <main class="main-container">
+    <!-- Navigation Sidebar / Tabs -->
+    <nav class="nav-tabs" role="tablist">
+      <button class="tab-btn active" data-tab="tab-autonomous" id="tab-btn-autonomous">
+        <span class="tab-icon">⚡</span>
+        <span class="tab-text">الموجّه الذاتي (Mind)</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-spectrum" id="tab-btn-spectrum">
+        <span class="tab-icon">📊</span>
+        <span class="tab-text">المسح الطيفي (Spectrum)</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-bluetooth" id="tab-btn-bluetooth">
+        <span class="tab-icon">📱</span>
+        <span class="tab-text">رادار البلوتوث (BLE Matrix)</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-decoders" id="tab-btn-decoders">
+        <span class="tab-icon">📻</span>
+        <span class="tab-text">مختبر فك التشفير (Decoders)</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-memory" id="tab-btn-memory">
+        <span class="tab-icon">🧠</span>
+        <span class="tab-text">الذاكرة المتعلّمة (Memory)</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-agent-api" id="tab-btn-agent-api">
+        <span class="tab-icon">🤖</span>
+        <span class="tab-text">واجهة الـ Agent & API</span>
+      </button>
+    </nav>
+
+    <!-- TAB 1: Autonomous Single-Intent Command Center -->
+    <section id="tab-autonomous" class="tab-pane active">
+      <div class="pane-grid-main">
+        <!-- Directives Console Card -->
+        <div class="card directive-card">
+          <div class="card-header">
+            <h3>🎯 الموجّه الذكي الموحّد (Single-Intent Autonomous Mind)</h3>
+            <span class="badge badge-info">مدعوم بالذكاء الاصطناعي والذاكرة الدائمة</span>
+          </div>
+          <p class="card-desc">
+            أرسل أمراً تكتيكياً واحداً بالعربية أو الإنجليزية، وسيقوم النظام بفك حظر الراديو، واختيار التردد والـ Gain المناسب، وتشغيل محرك OnAir الأصلي، وتخزين النتائج في الذاكرة الدائمة.
+          </p>
+
+          <form id="intent-form" class="intent-form" onsubmit="return false;">
+            <div class="input-group-hero">
+              <input type="text" id="intent-input" placeholder="اكتب أمرك هنا... (مثال: مسح شامل للجو كامل، افحص البلوتوث، ابحث عن ريموتات 433)" autocomplete="off">
+              <button type="submit" id="btn-execute-intent" class="btn btn-primary-hero">
+                <span class="btn-spinner" id="intent-spinner" style="display:none;"></span>
+                <span>تنفيذ تكتيكي ⚡</span>
+              </button>
+            </div>
+          </form>
+
+          <!-- Quick Intent Chips -->
+          <div class="preset-chips-container">
+            <span class="chips-title">أوامر سريعة بنقرة واحدة:</span>
+            <div class="chips-wrapper">
+              <button class="chip" data-intent="مسح شامل للجو كامل">🛡️ مسح شامل للجو كامل</button>
+              <button class="chip" data-intent="افحص البلوتوث واكشف الاجهزة">📱 كشف أجهزة البلوتوث (BLE)</button>
+              <button class="chip" data-intent="ابحث عن ريموتات وحساسات 433">📻 ريموتات وحساسات 433MHz</button>
+              <button class="chip" data-intent="افحص مفاتيح السيارات وحساسات الاطارات 315">🚗 مفاتيح سيارات 315MHz</button>
+              <button class="chip" data-intent="ابحث عن شبكات لورا وميشتاتيك 868">📡 لورا / Meshtastic 868MHz</button>
+              <button class="chip" data-intent="افحص اشارات الواي فاي والدرونات 2.4GHz">🛸 درونات ووايفاي 2.4GHz</button>
+              <button class="chip" data-intent="شغل محطة FM راديو واقرأ بيانات RDS">📻 راديو FM مع RDS</button>
+              <button class="chip" data-intent="تتبع اشارات اقمار الايريديوم الصناعية">🛰️ أقمار إيريديوم 1621MHz</button>
+              <button class="chip" data-intent="فك تشفير البث التلفزيوني الرقمي DVB-T2">📺 تلفزيون رقمي DVB-T2</button>
+              <button class="chip" data-intent="فحص الهاردوير والعتاد والـ GPU">⚡ فحص العتاد والـ GPU</button>
+              <button class="chip" data-intent="استرجع الذاكرة المسجلة وماذا تعرف">🧠 استرجاع الذاكرة التكتيكية</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Terminal Output Screen -->
+        <div class="card terminal-card">
+          <div class="card-header terminal-header">
+            <div class="terminal-dots">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+            </div>
+            <span class="terminal-title">TERMINAL // LIVE TACTICAL DOSSIER</span>
+            <div class="terminal-actions">
+              <button id="btn-copy-terminal" class="btn btn-ghost-sm" title="نسخ المخرجات">📋 نسخ</button>
+              <button id="btn-clear-terminal" class="btn btn-ghost-sm" title="مسح الشاشة">🧹 مسح</button>
+            </div>
+          </div>
+          <div class="terminal-body" id="terminal-output">
+            <div class="terminal-line system-welcome">
+              [SYSTEM ONLINE] OnAir Master Autonomous Engine v2.5.0 ready.<br>
+              PlutoSDR connected via usb:4.11.5 | GPU LDPC Acceleration Active.<br>
+              Ready to receive single-intent directives or autonomous agent commands.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: Spectrum Scanner & FFT Visualizer -->
+    <section id="tab-spectrum" class="tab-pane">
+      <div class="pane-grid-spectrum">
+        <div class="card spectrum-controls-card">
+          <div class="card-header">
+            <h3>📊 رادار المسح الطيفي (Spectrum Sweeper)</h3>
+            <span class="badge badge-accent">onair-scan.exe FFT</span>
+          </div>
+
+          <div class="spectrum-bands-grid">
+            <button class="band-btn active" data-band="subghz_ism">433 MHz ISM (Remotes)</button>
+            <button class="band-btn" data-band="subghz_315">315 MHz (Car Keys/TPMS)</button>
+            <button class="band-btn" data-band="lora_868">868 MHz (LoRa EU)</button>
+            <button class="band-btn" data-band="lora_915">915 MHz (LoRa US)</button>
+            <button class="band-btn" data-band="broadcast_fm">88-108 MHz (FM Radio)</button>
+            <button class="band-btn" data-band="ism_2400">2.4 GHz (WiFi/Drones)</button>
+            <button class="band-btn" data-band="marine_ais">162 MHz (Marine AIS)</button>
+            <button class="band-btn" data-band="aviation_vdl2">137 MHz (Aviation VDL2)</button>
+          </div>
+
+          <div class="custom-range-row">
+            <div class="input-field">
+              <label>من (MHz):</label>
+              <input type="number" id="spec-from" value="433.0" step="0.1">
+            </div>
+            <div class="input-field">
+              <label>إلى (MHz):</label>
+              <input type="number" id="spec-to" value="435.0" step="0.1">
+            </div>
+            <div class="input-field">
+              <label>الخطوة (MHz):</label>
+              <input type="number" id="spec-step" value="0.2" step="0.05">
+            </div>
+            <button id="btn-scan-spectrum" class="btn btn-primary">ابدأ المسح الطيفي 🚀</button>
+          </div>
+        </div>
+
+        <!-- Canvas Spectrum Waterfall Display -->
+        <div class="card spectrum-canvas-card">
+          <div class="card-header">
+            <h4>العرض الطيفي اللحظي (RF FFT Spectrum & Peak Analysis)</h4>
+            <span id="spectrum-stats-badge" class="badge badge-info">0 إشارات نشطة</span>
+          </div>
+          <div class="canvas-wrapper">
+            <canvas id="spectrum-canvas" width="900" height="280"></canvas>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table" id="spectrum-table">
+              <thead>
+                <tr>
+                  <th>التردد (MHz)</th>
+                  <th>قوة الإشارة (dBFS)</th>
+                  <th>معدل الإشغال (Occupancy)</th>
+                  <th>الحالة التكتيكية</th>
+                </tr>
+              </thead>
+              <tbody id="spectrum-table-body">
+                <tr><td colspan="4" class="text-center text-muted">لا يوجد مسح حالي. اضغط على أحد النطاقات أو زر المسح أعلاه.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: Bluetooth Low Energy Tactical Matrix -->
+    <section id="tab-bluetooth" class="tab-pane">
+      <div class="pane-grid-ble">
+        <div class="card ble-controls-card">
+          <div class="card-header">
+            <h3>📱 مصفوفة تعقب البلوتوث (BLE Airspace Matrix)</h3>
+            <span class="badge badge-accent">Channels 37, 38, 39</span>
+          </div>
+          <div class="ble-bar">
+            <div class="ble-inputs">
+              <label>مدة المسح لكل قناة (ثواني):</label>
+              <input type="number" id="ble-secs" value="6" min="2" max="30">
+              <label>التضخيم (Gain dB):</label>
+              <input type="number" id="ble-gain" value="44" min="0" max="73">
+            </div>
+            <button id="btn-scan-ble" class="btn btn-primary">مسح رادار البلوتوث 📡</button>
+          </div>
+        </div>
+
+        <div class="card ble-table-card">
+          <div class="card-header">
+            <h4>الأجهزة المكتشفة في المجال اللاسلكي</h4>
+            <span id="ble-count-badge" class="badge badge-info">0 أجهزة</span>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table" id="ble-table">
+              <thead>
+                <tr>
+                  <th>عنوان الماك (MAC Address)</th>
+                  <th>المصنّع / التسمية التكتيكية</th>
+                  <th>نوع العنوان</th>
+                  <th>القنوات الملتقطة</th>
+                  <th>عدد الحزم</th>
+                  <th>قوة الإشارة (dBFS)</th>
+                  <th>الوسم والملاحظات</th>
+                </tr>
+              </thead>
+              <tbody id="ble-table-body">
+                <tr><td colspan="7" class="text-center text-muted">اضغط على زر مسح البلوتوث لاكتشاف الأجهزة القريبة فوراً.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: Protocol Decoders Lab -->
+    <section id="tab-decoders" class="tab-pane">
+      <div class="pane-grid-decoders">
+        <!-- FM & RDS Card -->
+        <div class="card decoder-card">
+          <div class="card-header">
+            <h3>📻 فك تشفير راديو FM وبث RDS</h3>
+            <span class="badge badge-accent">88 - 108 MHz</span>
+          </div>
+          <p class="card-desc">استقبال البث الصوتي واستخراج معرف المحطة (PI)، واسم الخدمة (PS)، والنص الراديوي (RT).</p>
+          <div class="decoder-row">
+            <input type="number" id="fm-freq" value="100.0" step="0.1" placeholder="تردد المحطة (مثال: 100.0)">
+            <button id="btn-decode-fm" class="btn btn-outline">فك تشفير RDS 🎧</button>
+          </div>
+          <div class="decoder-result" id="fm-result-box">
+            <div class="result-item"><strong>اسم المحطة (PS):</strong> <span id="fm-ps">-</span></div>
+            <div class="result-item"><strong>كود المحطة (PI):</strong> <span id="fm-pi">-</span></div>
+            <div class="result-item"><strong>النص الراديوي (RT):</strong> <span id="fm-rt">-</span></div>
+            <div class="result-item"><strong>الانحراف الترددي:</strong> <span id="fm-dev">-</span></div>
+          </div>
+        </div>
+
+        <!-- Digital TV (DVB-T2) Card -->
+        <div class="card decoder-card">
+          <div class="card-header">
+            <h3>📺 التلفزيون الرقمي الأرضي (DVB-T2 / ATSC)</h3>
+            <span class="badge badge-gpu">مسرع بـ RTX 5060 Ti GPU</span>
+          </div>
+          <p class="card-desc">معالجة مصفوفات LDPC وتصحيح أخطاء البث المرئي عالي الدقة في الوقت الفعلي.</p>
+          <div class="decoder-row">
+            <input type="number" id="tv-freq" value="490.0" step="1.0" placeholder="التردد (MHz)">
+            <select id="tv-std">
+              <option value="t2">DVB-T2 (أوروبا / الشرق الأوسط)</option>
+              <option value="t">DVB-T</option>
+              <option value="atsc">ATSC (أمريكا)</option>
+              <option value="isdbt">ISDB-T</option>
+            </select>
+            <button id="btn-decode-tv" class="btn btn-outline">تحليل واستقبال 📺</button>
+          </div>
+          <div class="decoder-result" id="tv-result-box">
+            <div class="result-item"><strong>حالة القفل (Lock):</strong> <span id="tv-lock">-</span></div>
+            <div class="result-item"><strong>نسبة الإشارة للضوضاء (SNR):</strong> <span id="tv-snr">-</span></div>
+            <div class="result-item"><strong>معدل الخطأ التعديلي (MER):</strong> <span id="tv-mer">-</span></div>
+            <div class="result-item"><strong>القنوات والخدمات:</strong> <span id="tv-services">-</span></div>
+          </div>
+        </div>
+
+        <!-- Satellite Decoders -->
+        <div class="card decoder-card">
+          <div class="card-header">
+            <h3>🛰️ فك شفرات الأقمار الصناعية (Iridium / Orbcomm)</h3>
+            <span class="badge badge-accent">Space Intelligence</span>
+          </div>
+          <p class="card-desc">التقاط حزم البيانات الهابطة من كوكبة أقمار إيريديوم (1621.25 MHz) وتليمتري Orbcomm (137.5 MHz).</p>
+          <div class="decoder-row">
+            <select id="sat-type">
+              <option value="iridium">Iridium Bursts (1621.25 MHz)</option>
+              <option value="orbcomm">Orbcomm Downlinks (137.5 MHz)</option>
+            </select>
+            <button id="btn-decode-sat" class="btn btn-outline">استقبال حزم الفضاء 🛰️</button>
+          </div>
+          <div class="decoder-result" id="sat-result-box">
+            <div class="result-item"><strong>سجل الحزم الملتقطة:</strong> <pre id="sat-log">-</pre></div>
+          </div>
+        </div>
+
+        <!-- Raw SigMF CS8 Capture -->
+        <div class="card decoder-card">
+          <div class="card-header">
+            <h3>💾 مسجل الإشارات الخام (SigMF CS8 Recorder)</h3>
+            <span class="badge badge-info">F:\HACKVAULT\08_RF_SIGNALS</span>
+          </div>
+          <p class="card-desc">تسجيل تدفق عينات I/Q بدقة CS8 بدون أي فقدان حزم وتخزينها مباشرة في الفولت.</p>
+          <div class="decoder-row">
+            <input type="number" id="rec-freq" value="433.92" step="0.01" placeholder="التردد (MHz)">
+            <input type="number" id="rec-secs" value="5" min="1" max="60" placeholder="المدة (ثواني)">
+            <button id="btn-record-iq" class="btn btn-danger">بدء التسجيل الخام 🔴</button>
+          </div>
+          <div class="decoder-result" id="rec-result-box">
+            <div class="result-item"><strong>ملف التسجيل في الفولت:</strong> <span id="rec-file">-</span></div>
+            <div class="result-item"><strong>حجم العينات:</strong> <span id="rec-size">-</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: Persistent Learned Memory Explorer -->
+    <section id="tab-memory" class="tab-pane">
+      <div class="pane-grid-memory">
+        <div class="card memory-overview-card">
+          <div class="card-header">
+            <h3>🧠 الذاكرة المتعلّمة الدائمة (Persistent Knowledge Base)</h3>
+            <button id="btn-refresh-memory" class="btn btn-outline-sm">تحديث الذاكرة 🔄</button>
+          </div>
+          <div class="memory-stats-grid">
+            <div class="stat-box">
+              <span class="stat-num" id="mem-ble-count">0</span>
+              <span class="stat-label">أجهزة بلوتوث مسجلة</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-num" id="mem-peaks-count">0</span>
+              <span class="stat-label">ترددات نشطة مفهرسة</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-num" id="mem-fm-count">0</span>
+              <span class="stat-label">محطات إذاعية موثقة</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-num" id="mem-captures-count">0</span>
+              <span class="stat-label">تسجيلات خام في الفولت</span>
+            </div>
+          </div>
+          <div class="memory-path-info">
+            <strong>مسار التخزين الدائم:</strong>
+            <code>F:\HACKVAULT\08_RF_SIGNALS\ONAIR_LEARNED_MEMORY.json</code>
+          </div>
+        </div>
+
+        <div class="card memory-json-card">
+          <div class="card-header">
+            <h4>سجل الذاكرة الكامل (Raw JSON Intelligence Store)</h4>
+            <button id="btn-copy-memory-json" class="btn btn-ghost-sm">نسخ JSON 📋</button>
+          </div>
+          <pre class="json-viewer" id="memory-json-display">جارٍ جلب الذاكرة الدائمة...</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: AI Agent Integration & API Explorer -->
+    <section id="tab-agent-api" class="tab-pane">
+      <div class="pane-grid-agent">
+        <div class="card agent-guide-card">
+          <div class="card-header">
+            <h3>🤖 كيفية ربط أي Agent خارجي بمنظومة OnAir</h3>
+            <span class="badge badge-success">Universal Cross-Agent Control</span>
+          </div>
+          <p>
+            تستطيع من خلال هذه الشيفرات تمكين أي نموذج أو إيجنت ذكاء اصطناعي (Claude Code, Hermes, Cursor, أو Telegram Bot) من التحكم براديو PlutoSDR وبرنامج OnAir عبر الـ API المباشر:
+          </p>
+
+          <div class="code-snippet-box">
+            <div class="snippet-header">
+              <span>cURL // إرسال أمر تكتيكي موحّد:</span>
+              <button class="btn btn-copy-code" data-copy="curl-sample">نسخ</button>
+            </div>
+            <pre id="curl-sample">curl -X POST http://127.0.0.1:8765/mission \
+  -H "Content-Type: application/json" \
+  -d '{"intent": "مسح شامل للجو كامل"}'</pre>
+          </div>
+
+          <div class="code-snippet-box">
+            <div class="snippet-header">
+              <span>Python // استدعاء فحص البلوتوث وحفظ الأجهزة:</span>
+              <button class="btn btn-copy-code" data-copy="py-sample">نسخ</button>
+            </div>
+            <pre id="py-sample">import requests
+
+res = requests.post("http://127.0.0.1:8765/mission", json={
+    "intent": "افحص البلوتوث واكشف الاجهزة"
+})
+print(res.json()["markdown"])</pre>
+          </div>
+
+          <div class="code-snippet-box">
+            <div class="snippet-header">
+              <span>Claude Code & Antigravity MCP Config (مفعل مسبقاً):</span>
+              <button class="btn btn-copy-code" data-copy="mcp-sample">نسخ</button>
+            </div>
+            <pre id="mcp-sample">{
+  "mcpServers": {
+    "onair": {
+      "command": "python",
+      "args": ["F:\\HACKVAULT\\04_TOOLS\\onair_mcp_server.py"]
+    }
+  }
+}</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Global Footer -->
+  <footer class="app-footer">
+    <div class="footer-left">
+      <span>OnAir Master Control Bridge & ELINT Platform</span>
+      <span class="separator">|</span>
+      <span>Hardware: ADALM-Pluto (AD9363)</span>
+      <span class="separator">|</span>
+      <span>Compute: NVIDIA GeForce RTX 5060 Ti</span>
+    </div>
+    <div class="footer-right">
+      <span id="footer-time">--:--:--</span>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
