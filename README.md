@@ -2,7 +2,12 @@
 
 **Tactical Electronic Intelligence (ELINT) Dashboard & Autonomous Agent Controller for OnAir SDR + ADALM-Pluto**
 
----
+[![Vercel Deployment](https://img.shields.io/badge/Vercel-Live_Dashboard-cyan?style=for-the-badge&logo=vercel)](https://onair-sdr-master-control.vercel.app)
+[![GitHub Repository](https://img.shields.io/badge/GitHub-denjamal017--wq/onair--sdr--master-181717?style=for-the-badge&logo=github)](https://github.com/denjamal017-wq/onair-sdr-master)
+
+🌐 **Live Production URL**: [https://onair-sdr-master-control.vercel.app](https://onair-sdr-master-control.vercel.app)  
+📁 **GitHub Repository**: [https://github.com/denjamal017-wq/onair-sdr-master](https://github.com/denjamal017-wq/onair-sdr-master)  
+
 
 ## 🌟 Features
 
